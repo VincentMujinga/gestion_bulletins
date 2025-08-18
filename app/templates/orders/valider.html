@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Traiter commande{% endblock %}
+{% block content %}
+<h2>Traiter commande #{{ commande.id }}</h2>
+<ul class="list-group mb-3">
+  <li class="list-group-item"><strong>Établissement:</strong> {{ commande.etablissement.nom if commande.etablissement else "-" }}</li>
+  <li class="list-group-item"><strong>Niveau:</strong> {{ commande.niveau }}</li>
+  <li class="list-group-item"><strong>Option:</strong> {{ commande.option or "-" }}</li>
+  <li class="list-group-item"><strong>Quantité:</strong> {{ commande.quantite }}</li>
+  <li class="list-group-item"><strong>Année:</strong> {{ commande.annee_scolaire }}</li>
+</ul>
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <div class="mb-3">
+    {{ form.motif_rejet.label(class_="form-label") }}
+    {{ form.motif_rejet(class_="form-control", rows="3") }}
+  </div>
+  <div class="d-flex gap-2">
+    {{ form.submit_valider(class_="btn btn-success") }}
+    {{ form.submit_rejeter(class_="btn btn-outline-danger") }}
+  </div>
+</form>
+{% endblock %}

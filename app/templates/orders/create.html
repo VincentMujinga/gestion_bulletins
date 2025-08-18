@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Nouvelle commande{% endblock %}
+{% block content %}
+<h2>Nouvelle commande</h2>
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      {{ form.niveau.label(class_="form-label") }}
+      {{ form.niveau(class_="form-control") }}
+      {% for e in form.niveau.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.option.label(class_="form-label") }}
+      {{ form.option(class_="form-control") }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.annee_scolaire.label(class_="form-label") }}
+      {{ form.annee_scolaire(class_="form-control") }}
+      {% for e in form.annee_scolaire.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.quantite.label(class_="form-label") }}
+      {{ form.quantite(class_="form-control") }}
+      {% for e in form.quantite.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+    </div>
+  </div>
+  {{ form.submit(class_="btn btn-primary") }}
+</form>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Tableau de bord{% endblock %}
+{% block content %}
+  <div class="p-4 bg-light rounded-3">
+    <h1 class="display-6">Système de Gestion des Bulletins</h1>
+    <p class="lead">Bienvenue{% if current_user.is_authenticated %}, {{ current_user.username }}{% endif %}.</p>
+    <hr/>
+    <p>Utilisez le menu pour accéder à vos fonctionnalités selon votre rôle.</p>
+  </div>
+{% endblock %}

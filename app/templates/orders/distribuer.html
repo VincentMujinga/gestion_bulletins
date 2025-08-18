@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Distribuer{% endblock %}
+{% block content %}
+<h2>Distribution - Commande #{{ commande.id }}</h2>
+<p><strong>Demande:</strong> {{ commande.quantite }} bulletins ({{ commande.niveau }} / {{ commande.option or 'N/A' }})</p>
+{% if stock %}
+  <p><strong>Stock disponible:</strong> {{ stock.quantite_disponible }}</p>
+  <form method="POST">
+    <button class="btn btn-primary">Distribuer maintenant</button>
+  </form>
+{% else %}
+  <div class="alert alert-warning">Aucun stock pour ce niveau/option.</div>
+{% endif %}
+{% endblock %}

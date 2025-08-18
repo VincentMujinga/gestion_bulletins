@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Connexion{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-header">Connexion</div>
+      <div class="card-body">
+        <form method="POST">
+          {{ form.hidden_tag() }}
+          <div class="mb-3">
+            {{ form.username.label(class_="form-label") }}
+            {{ form.username(class_="form-control") }}
+            {% for e in form.username.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="mb-3">
+            {{ form.password.label(class_="form-label") }}
+            {{ form.password(class_="form-control") }}
+            {% for e in form.password.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+          {{ form.submit(class_="btn btn-primary") }}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Stock{% endblock %}
+{% block content %}
+<h2>Gestion des stocks</h2>
+<form class="row gy-2 gx-2 align-items-end" method="POST" action="{{ url_for('stock.add') }}">
+  <div class="col-md-3">
+    <label class="form-label">Niveau</label>
+    <input class="form-control" name="niveau" required/>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Option</label>
+    <input class="form-control" name="option" />
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Quantité à ajouter</label>
+    <input type="number" min="1" class="form-control" name="quantite" required/>
+  </div>
+  <div class="col-md-3">
+    <button class="btn btn-primary">Ajouter / Mettre à jour</button>
+  </div>
+</form>
+<hr/>
+<table class="table table-sm">
+  <thead><tr><th>Niveau</th><th>Option</th><th>Quantité disponible</th><th>Dernière mise à jour</th></tr></thead>
+  <tbody>
+    {% for s in stocks %}
+      <tr>
+        <td>{{ s.niveau }}</td>
+        <td>{{ s.option or '-' }}</td>
+        <td>{{ s.quantite_disponible }}</td>
+        <td>{{ s.updated_at.strftime('%Y-%m-%d %H:%M') if s.updated_at else '-' }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

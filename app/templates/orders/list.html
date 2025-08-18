@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Commandes{% endblock %}
+{% block content %}
+<h2>Commandes</h2>
+<table class="table table-sm align-middle">
+  <thead>
+    <tr>
+      <th>ID</th><th>Établissement</th><th>Niveau</th><th>Option</th><th>Quantité</th>
+      <th>Année</th><th>Statut</th><th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in commandes %}
+      <tr>
+        <td>{{ c.id }}</td>
+        <td>{{ c.etablissement.nom if c.etablissement else "-" }}</td>
+        <td>{{ c.niveau }}</td>
+        <td>{{ c.option or "-" }}</td>
+        <td>{{ c.quantite }}</td>
+        <td>{{ c.annee_scolaire }}</td>
+        <td><span class="badge text-bg-secondary">{{ c.statut.value }}</span></td>
+        <td>
+          {% if current_user.role.value == 'COORDONNATEUR' and c.statut.value == 'EN_ATTENTE' %}
+            <a class="btn btn-sm btn-outline-success" href="{{ url_for('orders.valider', commande_id=c.id) }}">Valider/Rejeter</a>
+          {% endif %}
+          {% if current_user.role.value == 'SOUS_PROVED' and c.statut.value == 'VALIDEE' %}
+            <a class="btn btn-sm btn-outline-success" href="{{ url_for('orders.approuver', commande_id=c.id) }}">Approuver/Rejeter</a>
+          {% endif %}
+          {% if current_user.role.value == 'PROVED' and c.statut.value in ['APPROUVEE','PARTIELLE'] %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('orders.distribuer', commande_id=c.id) }}">Distribuer</a>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

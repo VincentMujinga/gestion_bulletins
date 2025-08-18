@@ -1,0 +1,47 @@
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('index') }}">Bulletins</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        {% if current_user.is_authenticated %}
+
+          <!-- Le lien vers la liste des commandes est mis en commentaire pour le moment
+          <li class="nav-item"><a class="nav-link" href="#">Commandes</a></li>
+          -->
+
+          <!-- Le lien pour créer une commande est mis en commentaire pour le moment
+          {% if current_user.role.name == 'Chef d\'établissement' %}
+            <li class="nav-item"><a class="nav-link" href="#">Nouvelle commande</a></li>
+          {% endif %}
+          -->
+
+          <!-- Le lien pour le stock est mis en commentaire pour le moment
+          {% if current_user.role.name == 'Proved' %}
+            <li class="nav-item"><a class="nav-link" href="#">Stock</a></li>
+          {% endif %}
+          -->
+
+          <!-- Ce lien va fonctionner car la route 'list_users' existe -->
+          {% if current_user.role.name == 'Administrateur' %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('list_users') }}">Utilisateurs</a></li>
+          {% endif %}
+
+        {% endif %}
+      </ul>
+      <ul class="navbar-nav ms-auto">
+        {% if current_user.is_authenticated %}
+          <!-- Affiche le nom et le rôle de l'utilisateur connecté -->
+          <li class="nav-item"><span class="navbar-text me-2">{{ current_user.username }} ({{ current_user.role.name }})</span></li>
+          <!-- Le lien de déconnexion pointe maintenant vers 'logout' -->
+          <li class="nav-item"><a class="btn btn-outline-dark btn-sm" href="{{ url_for('logout') }}">Se déconnecter</a></li>
+        {% else %}
+          <!-- Le lien de connexion pointe maintenant vers 'login' -->
+         <li class="nav-item"><a class="btn btn-primary btn-sm" href="{{ url_for('login') }}">Se connecter</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
