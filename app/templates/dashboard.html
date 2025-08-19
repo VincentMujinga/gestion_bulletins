@@ -3,46 +3,29 @@
 {% block content %}
 <div class="container">
     <h1 class="mb-4">Tableau de Bord</h1>
-
-    <!-- Message de bienvenue générique -->
     <p class="lead">Bienvenue, {{ current_user.username }} !</p>
 
-    <!-- ============================================================================== -->
-    <!-- SECTION SPÉCIFIQUE AU RÔLE DU CHEF D'ÉTABLISSEMENT -->
-    <!-- ============================================================================== -->
+    <!-- CHEF D'ÉTABLISSEMENT -->
     {% if current_user.role.name == 'Chef d\'établissement' %}
-
         <div class="card my-4">
-            <div class="card-header">
-                <h4>Actions Rapides</h4>
-            </div>
+            <div class="card-header"><h4>Actions Rapides</h4></div>
             <div class="card-body">
                 <p>Commencez par créer une nouvelle demande de bulletins pour votre établissement.</p>
-                <a href="{{ url_for('creer_demande') }}" class="btn btn-primary btn-lg">
-                    <i class="bi bi-file-earmark-plus"></i> Faire une Nouvelle Demande
-                </a>
+                <a href="{{ url_for('creer_demande') }}" class="btn btn-primary btn-lg">Faire une Nouvelle Demande</a>
             </div>
         </div>
-
         <div class="card my-4">
-            <div class="card-header">
-                <h4>Historique de vos Demandes</h4>
-            </div>
+            <div class="card-header"><h4>Historique de vos Demandes</h4></div>
             <div class="card-body">
-                <!-- Nous afficherons ici un tableau avec les demandes précédentes -->
-                <p class="text-muted">La liste de vos demandes passées et en cours de traitement apparaîtra ici.</p>
+                <p>Consultez la liste de vos demandes passées et en cours de traitement.</p>
+                <a href="{{ url_for('mes_demandes') }}" class="btn btn-outline-primary">Voir l'Historique</a>
             </div>
         </div>
 
-    <!-- ============================================================================== -->
-    <!-- SECTION SPÉCIFIQUE AU RÔLE DE L'ADMINISTRATEUR -->
-    <!-- ============================================================================== -->
+    <!-- ADMINISTRATEUR -->
     {% elif current_user.role.name == 'Administrateur' %}
-
         <div class="card my-4">
-            <div class="card-header">
-                <h4>Administration du Système</h4>
-            </div>
+            <div class="card-header"><h4>Administration du Système</h4></div>
             <div class="card-body">
                 <p>Utilisez les liens dans la barre de navigation pour gérer les utilisateurs et les établissements.</p>
                 <a href="{{ url_for('list_users') }}" class="btn btn-secondary">Gérer les Utilisateurs</a>
@@ -50,20 +33,24 @@
             </div>
         </div>
 
-    <!-- ============================================================================== -->
-    <!-- SECTION POUR LES AUTRES RÔLES (Coordonnateur, Proved, etc.) -->
-    <!-- ============================================================================== -->
-    {% else %}
-
+    <!-- NOUVELLE SECTION POUR LE COORDONNATEUR -->
+    {% elif current_user.role.name == 'Coordonnateur' %}
         <div class="card my-4">
-            <div class="card-header">
-                <h4>Bienvenue</h4>
+            <div class="card-header"><h4>Validation des Demandes</h4></div>
+            <div class="card-body">
+                <p>Vous avez des demandes soumises par les établissements en attente de votre validation.</p>
+                <a href="{{ url_for('coordonnateur_dashboard') }}" class="btn btn-primary">Voir les Demandes à Valider</a>
             </div>
+        </div>
+
+    <!-- AUTRES RÔLES -->
+    {% else %}
+        <div class="card my-4">
+            <div class="card-header"><h4>Bienvenue</h4></div>
             <div class="card-body">
                 <p>Votre tableau de bord personnalisé sera bientôt disponible ici.</p>
             </div>
         </div>
-
     {% endif %}
 </div>
 {% endblock %}

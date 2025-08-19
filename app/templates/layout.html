@@ -26,7 +26,7 @@
                 <a class="nav-link" href="{{ url_for('dashboard') }}">Tableau de Bord</a>
               </li>
 
-              <!-- ======================= SECTION POUR L'ADMINISTRATEUR ======================= -->
+              <!-- SECTION POUR L'ADMINISTRATEUR -->
               {% if current_user.role.name == 'Administrateur' %}
                 <li class="nav-item">
                   <a class="nav-link" href="{{ url_for('list_users') }}">Gérer les Utilisateurs</a>
@@ -35,34 +35,55 @@
                   <a class="nav-link" href="{{ url_for('list_etablissements') }}">Gérer les Établissements</a>
                 </li>
               {% endif %}
-              <!-- ============================================================================== -->
 
-              <!-- ======================= SECTION POUR LE CHEF D'ÉTABLISSEMENT ======================= -->
+              <!-- SECTION POUR LE CHEF D'ÉTABLISSEMENT -->
               {% if current_user.role.name == 'Chef d\'établissement' %}
                 <li class="nav-item">
                   <a class="nav-link" href="{{ url_for('creer_demande') }}">Nouvelle Demande</a>
                 </li>
-                <!-- On ajoutera plus tard un lien pour voir l'historique de ses demandes ici -->
+                <li class="nav-item">
+                  <a class="nav-link" href="{{ url_for('mes_demandes') }}">Mes Demandes</a>
+                </li>
               {% endif %}
-              <!-- ============================================================================== -->
 
             {% endif %}
           </ul>
 
+          <!-- ======================= SECTION UTILISATEUR (DROITE) MISE À JOUR ======================= -->
           <ul class="navbar-nav ms-auto">
             {% if current_user.is_authenticated %}
+
+              <!-- LIEN VERS LES NOTIFICATIONS AVEC COMPTEUR -->
               <li class="nav-item">
-                <span class="navbar-text me-2">{{ current_user.username }} ({{ current_user.role.name }})</span>
+                <a class="nav-link" href="{{ url_for('notifications') }}">
+                  Notifications
+                  {% if notification_count > 0 %}
+                    <span class="badge rounded-pill bg-danger">
+                      {{ notification_count }}
+                      <span class="visually-hidden">notifications non lues</span>
+                    </span>
+                  {% endif %}
+                </a>
               </li>
-              <li class="nav-item">
-                <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">Se déconnecter</a>
+
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  {{ current_user.username }}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">{{ current_user.role.name }}</h6></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('logout') }}">Se déconnecter</a></li>
+                </ul>
               </li>
+
             {% else %}
              <li class="nav-item">
                <a class="btn btn-primary btn-sm" href="{{ url_for('login') }}">Se connecter</a>
              </li>
             {% endif %}
           </ul>
+          <!-- =================================================================================== -->
         </div>
       </div>
     </nav>
@@ -82,6 +103,7 @@
                 {% endfor %}
             {% endif %}
         {% endwith %}
+
 
         <!-- Le bloc où le contenu de chaque page sera inséré -->
         {% block content %}{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2">Détails de la Demande N°DEM-{{ demande.id }}</h1>
+        <p class="text-muted">Soumise le {{ demande.date_demande.strftime('%d %B %Y à %H:%M') }}</p>
+    </div>
+    <div>
+        <button onclick="window.print();" class="btn btn-secondary">Imprimer / PDF</button>
+        <a href="{{ request.referrer or url_for('dashboard') }}" class="btn btn-outline-secondary">Retour</a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Colonne des informations générales -->
+    <div class="col-md-5">
+        <div class="card mb-4">
+            <div class="card-header"><h4>Informations Générales</h4></div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between"><strong>Établissement:</strong><span>{{ demande.etablissement.nom }}</span></li>
+                <li class="list-group-item d-flex justify-content-between"><strong>Année Scolaire:</strong><span>{{ demande.annee_scolaire }}</span></li>
+                <li class="list-group-item d-flex justify-content-between"><strong>Quantité Totale:</strong><span class="fw-bold">{{ demande.total_quantite }}</span></li>
+                <li class="list-group-item d-flex justify-content-between"><strong>Statut Actuel:</strong><span class="badge bg-primary fs-6">{{ demande.statut }}</span></li>
+            </ul>
+        </div>
+    </div>
+    <!-- Colonne avec la liste des lignes de la demande -->
+    <div class="col-md-7">
+        <div class="card mb-4">
+            <div class="card-header"><h4>Lignes de la Demande</h4></div>
+            <div class="card-body p-0"><table class="table table-striped table-hover mb-0"><thead><tr><th>Type</th><th>Niveau/Classe</th><th>Option</th><th class="text-end">Quantité</th></tr></thead><tbody>
+            {% for ligne in demande.lignes %}<tr><td>{{ ligne.type_ecole }}</td><td>{{ ligne.niveau }}</td><td>{{ ligne.option or 'N/A' }}</td><td class="text-end">{{ ligne.quantite }}</td></tr>{% endfor %}
+            </tbody></table></div>
+        </div>
+    </div>
+</div>
+
+<!-- Section des Actions de Validation -->
+<div class="card">
+    <div class="card-header"><h4>Actions Disponibles</h4></div>
+    <div class="card-body d-flex justify-content-start gap-2 align-items-center">
+        <!-- ACTIONS POUR LE COORDONNATEUR -->
+        {% if current_user.role.name == 'Coordonnateur' and demande.statut == 'Soumise' %}
+            <form action="{{ url_for('valider_demande', demande_id=demande.id) }}" method="POST" class="d-inline">
+                <button type="submit" class="btn btn-success">Valider la Demande</button>
+            </form>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejetModal">Rejeter la Demande</button>
+        {% else %}
+            <p class="text-muted mb-0">Aucune action n'est requise de votre part pour cette demande à ce stade.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ======================= MODAL DE REJET CORRIGÉ ======================= -->
+<div class="modal fade" id="rejetModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Motif du Rejet</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Veuillez expliquer pourquoi cette demande est rejetée.</p>
+        
+        <form action="{{ url_for('rejeter_demande', demande_id=demande.id) }}" method="POST">
+          
+          <!-- CORRECTION : On utilise hidden_tag() du formulaire pour le token CSRF -->
+          {{ form_rejet.hidden_tag() }}
+
+          <div class="mb-3">
+              {{ form_rejet.motif_rejet.label(class="form-label") }}
+              {{ form_rejet.motif_rejet(class="form-control", rows=4) }}
+          </div>
+          {{ form_rejet.submit(class="btn btn-danger w-100") }}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ======================================================================== -->
+{% endblock %}

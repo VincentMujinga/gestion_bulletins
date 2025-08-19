@@ -1,6 +1,5 @@
 # ==============================================================================
-# Contenu COMPLET et CORRECT pour le fichier app/routes.py
-# Étape : Ajout de la création de demande pour le Chef d'Établissement
+# Contenu COMPLET, VÉRIFIÉ ET CORRECT pour le fichier app/routes.py
 # ==============================================================================
 
 from flask import render_template, flash, redirect, url_for, request, current_app as app
@@ -8,48 +7,57 @@ from flask_login import login_user, logout_user, current_user, login_required
 from functools import wraps
 from app import db
 import re
-# On importe tous les formulaires et modèles nécessaires en une seule fois
-from app.forms import LoginForm, AddUserForm, EditUserForm, EtablissementForm, DemandeForm
-from app.models import User, Role, Etablissement, Demande, LigneDemande
+from datetime import datetime
+
+# Imports des formulaires et modèles nécessaires pour tout le fichier
+from app.forms import (LoginForm, AddUserForm, EditUserForm,
+                       EtablissementForm, DemandeForm, RejectionForm)
+from app.models import (User, Role, Etablissement,
+                        Demande, LigneDemande, Notification)
 
 
-# --- Section des Décorateurs de Sécurité ---
+# ==============================================================================
+# DÉCORATEURS DE SÉCURITÉ
+# ==============================================================================
 
 def admin_required(f):
-    """Décorateur pour les routes réservées à l'administrateur."""
-
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.role.name != 'Administrateur':
-            flash("Accès non autorisé. Vous devez être administrateur.", 'danger')
+            flash("Accès non autorisé.", 'danger')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
-
     return decorated_function
 
-
 def chef_etablissement_required(f):
-    """Décorateur pour les routes réservées au Chef d'établissement."""
-
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.role.name != 'Chef d\'établissement':
             flash("Accès réservé aux chefs d'établissement.", 'danger')
             return redirect(url_for('dashboard'))
         if not current_user.etablissement:
-            flash("Votre compte n'est pas associé à un établissement. Contactez l'administrateur.", 'danger')
+            flash("Votre compte n'est pas associé à un établissement.", 'danger')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
+    return decorated_function
 
+def coordonnateur_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role.name != 'Coordonnateur':
+            flash("Accès réservé aux coordonnateurs.", 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
     return decorated_function
 
 
-# --- Routes d'Authentification et de Navigation de Base ---
+# ==============================================================================
+# ROUTES COMMUNES (Authentification, Dashboard, Notifications)
+# ==============================================================================
 
 @app.route('/')
 def index():
     return redirect(url_for('login'))
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -60,78 +68,63 @@ def login():
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.check_password(form.password.data):
             login_user(user, remember=form.remember_me.data)
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('dashboard'))
+            return redirect(request.args.get('next') or url_for('dashboard'))
         flash('Identifiants invalides.', 'danger')
     return render_template('auth/login.html', form=form, title="Connexion")
-
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
     return render_template('dashboard.html', title="Tableau de Bord")
 
-
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash('Vous avez été déconnecté avec succès.', 'info')
+    flash('Vous avez été déconnecté.', 'info')
     return redirect(url_for('login'))
 
+@app.route('/notifications')
+@login_required
+def notifications():
+    notifs_non_lues = current_user.notifications.filter_by(is_read=False).order_by(Notification.timestamp.desc())
+    for notif in notifs_non_lues:
+        notif.is_read = True
+    db.session.commit()
+    toutes_les_notifs = current_user.notifications.order_by(Notification.timestamp.desc()).all()
+    return render_template('notifications.html', notifications=toutes_les_notifs, title="Mes Notifications")
 
-# --- Routes pour le Chef d'Établissement ---
-
-# Dans app/routes.py
-
-# Dans app/routes.py
-
-  # <-- Assurez-vous d'importer 're' en haut de votre fichier
+def send_notification(user_id, message):
+    notification = Notification(user_id=user_id, message=message)
+    db.session.add(notification)
 
 
-# ... (gardez tous les autres imports et les autres routes) ...
+# ==============================================================================
+# ROUTES POUR LES DEMANDES (Chef d'Établissement & autres)
+# ==============================================================================
 
 @app.route('/demandes/nouvelle', methods=['GET', 'POST'])
 @login_required
 @chef_etablissement_required
 def creer_demande():
-    # On passe le formulaire vide à la page pour la protection CSRF
     form = DemandeForm()
-
-    # On définit la structure des options pour le JavaScript
     options_par_type = {
-        'Maternelle': {
-            'niveaux': ['1ère', '2ème', '3ème'],
-            'options': {}
-        },
-        'Primaire': {
-            'niveaux': ['Élémentaire', 'Moyen', '5ème', '6ème'],
-            'options': {}
-        },
+        'Maternelle': {'niveaux': ['1ère', '2ème', '3ème'], 'options': {}},
+        'Primaire': {'niveaux': ['Élémentaire', 'Moyen', '5ème', '6ème'], 'options': {}},
         'Secondaire': {
             'niveaux': ['7ème', '8ème'],
             'options': {
-                'Pédagogie Générale': ['1ère', '2ème', '3ème', '4ème'],
-                'Coupe et Couture': ['1ère', '2ème', '3ème', '4ème'],
-                'Scientifique': ['1ère', '2ème', '3ème', '4ème'],
-                'Mécanique Auto': ['1ère', '2ème', '3ème', '4ème'],
-                'Commerciale et Gestion': ['1ère', '2ème', '3ème', '4ème'],
-                'Mécanique Générale': ['1ère', '2ème', '3ème', '4ème'],
-                'Agronomie': ['1ère', '2ème', '3ème', '4ème'],
-                'Vétérinaire': ['1ère', '2ème', '3ème', '4ème'],
+                'Pédagogie Générale': ['1ère', '2ème', '3ème', '4ème'], 'Coupe et Couture': ['1ère', '2ème', '3ème', '4ème'],
+                'Scientifique': ['1ère', '2ème', '3ème', '4ème'], 'Mécanique Auto': ['1ère', '2ème', '3ème', '4ème'],
+                'Commerciale et Gestion': ['1ère', '2ème', '3ème', '4ème'], 'Mécanique Générale': ['1ère', '2ème', '3ème', '4ème'],
+                'Agronomie': ['1ère', '2ème', '3ème', '4ème'], 'Vétérinaire': ['1ère', '2ème', '3ème', '4ème'],
                 'Électricité': ['1ère', '2ème', '3ème', '4ème']
             }
         }
     }
-
-    # --- DÉBUT DE LA LOGIQUE DE SAUVEGARDE CORRIGÉE ---
     if request.method == 'POST':
-        # On récupère les données manuellement car le formulaire est dynamique
         annee_scolaire = request.form.get('annee_scolaire')
         lignes = []
-
-        # Le formulaire dynamique envoie les champs sous la forme 'lignes-0-type_ecole', 'lignes-1-type_ecole', etc.
-        # Nous devons parser ces données.
         index = 0
         while f'lignes-{index}-type_ecole' in request.form:
             ligne_data = {
@@ -139,64 +132,129 @@ def creer_demande():
                 'niveau_complet': request.form.get(f'lignes-{index}-niveau'),
                 'quantite': request.form.get(f'lignes-{index}-quantite', 0, type=int)
             }
-            lignes.append(ligne_data)
+            if ligne_data['quantite'] > 0:
+                lignes.append(ligne_data)
             index += 1
-
         if not annee_scolaire or not lignes:
-            flash("Veuillez remplir l'année scolaire et ajouter au moins une ligne à votre demande.", 'danger')
-            return render_template('demandes/creer_demande.html', title="Nouvelle Demande", form=form,
-                                   options_par_type=options_par_type)
-
-        # 1. Créer l'objet Demande principal
-        nouvelle_demande = Demande(
-            annee_scolaire=annee_scolaire,
-            etablissement_id=current_user.etablissement_id,
-            statut='Soumise'
-        )
+            flash("Veuillez remplir l'année scolaire et ajouter au moins une ligne avec une quantité.", 'danger')
+            return render_template('demandes/creer_demande.html', title="Nouvelle Demande", form=form, options_par_type=options_par_type)
+        nouvelle_demande = Demande(annee_scolaire=annee_scolaire, etablissement_id=current_user.etablissement_id)
         db.session.add(nouvelle_demande)
-
-        # 2. Créer chaque objet LigneDemande et le lier à la Demande
         for data in lignes:
-            niveau_val = data['niveau_complet']
-            option_val = None
-
-            # On utilise une expression régulière pour extraire le niveau et l'option
-            # si le format est "Niveau (Option)"
+            niveau_val, option_val = data['niveau_complet'], None
             match = re.match(r"(.+?)\s\((.+)\)", niveau_val)
             if match:
-                niveau_val = match.group(1).strip()  # Ex: "3ème"
-                option_val = match.group(2).strip()  # Ex: "Scientifique"
-
-            ligne = LigneDemande(
-                demande=nouvelle_demande,  # Relation SQLAlchemy
-                type_ecole=data['type_ecole'],
-                niveau=niveau_val,
-                option=option_val,
-                quantite=data['quantite']
-            )
+                niveau_val, option_val = match.group(1).strip(), match.group(2).strip()
+            ligne = LigneDemande(demande=nouvelle_demande, type_ecole=data['type_ecole'], niveau=niveau_val, option=option_val, quantite=data['quantite'])
             db.session.add(ligne)
-
-        # 3. Sauvegarder tout dans la base de données
+        role_coordonnateur = Role.query.filter_by(name='Coordonnateur').first()
+        if role_coordonnateur:
+            tous_les_coordonnateurs = role_coordonnateur.users.all()
+            db.session.flush()
+            for coord in tous_les_coordonnateurs:
+                message = f"Nouvelle demande (N°{nouvelle_demande.id}) de {current_user.etablissement.nom} à valider."
+                send_notification(user_id=coord.id, message=message)
         db.session.commit()
-
         flash('Votre demande a été enregistrée et soumise avec succès.', 'success')
-        return redirect(url_for('dashboard'))
-    # --- FIN DE LA LOGIQUE DE SAUVEGARDE CORRIGÉE ---
+        return redirect(url_for('mes_demandes'))
+    return render_template('demandes/creer_demande.html', title="Nouvelle Demande", form=form, options_par_type=options_par_type)
 
-    return render_template('demandes/creer_demande.html', title="Nouvelle Demande", form=form,
-                           options_par_type=options_par_type)    # --- FIN DE LA MODIFICATION ---
+@app.route('/mes-demandes')
+@login_required
+@chef_etablissement_required
+def mes_demandes():
+    demandes = Demande.query.filter_by(etablissement_id=current_user.etablissement_id).order_by(Demande.date_demande.desc()).all()
+    return render_template('demandes/mes_demandes.html', demandes=demandes, title="Mes Demandes")
 
+@app.route('/demande/<int:demande_id>/details')
+@login_required
+def details_demande(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+    if current_user.role.name == 'Chef d\'établissement' and demande.etablissement_id != current_user.etablissement_id:
+        flash("Accès non autorisé à cette demande.", 'danger')
+        return redirect(url_for('mes_demandes'))
+    form_rejet = RejectionForm()
+    return render_template('demandes/details_demande.html', demande=demande, form_rejet=form_rejet, title=f"Détails Demande N°{demande.id}")
+
+
+# ==============================================================================
+# ROUTES POUR LE COORDONNATEUR
+# ==============================================================================
+
+@app.route('/coordonnateur/dashboard')
+@login_required
+@coordonnateur_required
+def coordonnateur_dashboard():
+    demandes_a_valider = Demande.query.filter_by(statut='Soumise').order_by(Demande.date_demande.asc()).all()
+    stats = {
+        'en_attente': len(demandes_a_valider),
+        'traitees_par_moi': Demande.query.filter(
+            Demande.processeur_id == current_user.id,
+            Demande.statut.in_(['Validée', 'Rejetée'])
+        ).count(),
+        'total_recues': Demande.query.count()
+    }
+    return render_template('coordonnateur/dashboard.html', demandes=demandes_a_valider, stats=stats, title="Demandes à Valider")
+
+@app.route('/coordonnateur/historique')
+@login_required
+@coordonnateur_required
+def coordonnateur_historique():
+    demandes_traitees = Demande.query.filter(
+        Demande.processeur_id == current_user.id,
+        Demande.statut.in_(['Validée', 'Rejetée'])
+    ).order_by(Demande.date_traitement.desc()).all()
+    return render_template('coordonnateur/historique.html', demandes=demandes_traitees, title="Historique des Traitements")
+
+@app.route('/demande/<int:demande_id>/valider', methods=['POST'])
+@login_required
+@coordonnateur_required
+def valider_demande(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+    if demande.statut == 'Soumise':
+        demande.statut = 'Validée'
+        demande.processeur_id = current_user.id
+        demande.date_traitement = datetime.utcnow()
+        chef = demande.etablissement.utilisateurs.first()
+        if chef:
+            message = f"Bonne nouvelle ! Votre demande N°{demande.id} a été VALIDÉE par le Coordonnateur."
+            send_notification(user_id=chef.id, message=message)
+        db.session.commit()
+        flash(f'La demande N°{demande.id} a été validée avec succès.', 'success')
+    else:
+        flash(f'Cette demande n\'est plus en attente de validation.', 'warning')
+    return redirect(url_for('coordonnateur_dashboard'))
+
+@app.route('/demande/<int:demande_id>/rejeter', methods=['POST'])
+@login_required
+@coordonnateur_required
+def rejeter_demande(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+    form = RejectionForm()
     if form.validate_on_submit():
-        # ... (la logique de soumission reste la même) ...
-        # ...
-        flash('Votre demande a été soumise avec succès.', 'success')
-        return redirect(url_for('dashboard'))
+        if demande.statut == 'Soumise':
+            demande.statut = 'Rejetée'
+            demande.processeur_id = current_user.id
+            demande.date_traitement = datetime.utcnow()
+            chef = demande.etablissement.utilisateurs.first()
+            if chef:
+                message = f"Attention : Votre demande N°{demande.id} a été REJETÉE. Motif : {form.motif_rejet.data}"
+                send_notification(user_id=chef.id, message=message)
+            db.session.commit()
+            flash(f'La demande N°{demande.id} a été rejetée.', 'success')
+        else:
+            flash(f'Cette demande n\'est plus en attente de validation.', 'warning')
+        return redirect(url_for('coordonnateur_dashboard'))
+    else:
+        flash('Le motif du rejet est obligatoire et doit faire au moins 10 caractères.', 'danger')
+        return redirect(url_for('details_demande', demande_id=demande.id))
 
-    # On passe les options au template
-    return render_template('demandes/creer_demande.html', title="Nouvelle Demande", form=form,
-                           options_par_type=options_par_type)
-# --- Routes de la Section Administration ---
 
+# ==============================================================================
+# ROUTES POUR L'ADMINISTRATEUR
+# ==============================================================================
+
+# --- Gestion des Utilisateurs ---
 @app.route('/admin/users')
 @login_required
 @admin_required
@@ -204,28 +262,24 @@ def list_users():
     users = User.query.order_by(User.id).all()
     return render_template('admin/users.html', users=users, title="Gestion des Utilisateurs")
 
-
 @app.route('/admin/users/add', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def add_user():
     form = AddUserForm()
     if form.validate_on_submit():
-        existing_user = User.query.filter(
-            (User.username == form.username.data) | (User.email == form.email.data)).first()
+        existing_user = User.query.filter((User.username == form.username.data) | (User.email == form.email.data)).first()
         if existing_user:
             flash('Ce nom d\'utilisateur ou cet email est déjà utilisé.', 'danger')
         else:
             etablissement_id = form.etablissement.data if form.etablissement.data > 0 else None
-            new_user = User(username=form.username.data, email=form.email.data, role_id=form.role.data,
-                            etablissement_id=etablissement_id)
+            new_user = User(username=form.username.data, email=form.email.data, role_id=form.role.data, etablissement_id=etablissement_id)
             new_user.set_password(form.password.data)
             db.session.add(new_user)
             db.session.commit()
             flash('Utilisateur créé avec succès!', 'success')
             return redirect(url_for('list_users'))
     return render_template('admin/add_user.html', form=form, title="Ajouter un Utilisateur")
-
 
 @app.route('/admin/users/edit/<int:user_id>', methods=['GET', 'POST'])
 @login_required
@@ -249,7 +303,6 @@ def edit_user(user_id):
     form.etablissement.data = user.etablissement_id or 0
     return render_template('admin/edit_user.html', form=form, user=user, title="Modifier l'Utilisateur")
 
-
 @app.route('/admin/users/delete/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
@@ -262,15 +315,13 @@ def delete_user(user_id):
     db.session.commit()
     return redirect(url_for('list_users'))
 
-
+# --- Gestion des Établissements ---
 @app.route('/admin/etablissements')
 @login_required
 @admin_required
 def list_etablissements():
     etablissements = Etablissement.query.order_by(Etablissement.nom).all()
-    return render_template('admin/etablissements.html', etablissements=etablissements,
-                           title="Gestion des Établissements")
-
+    return render_template('admin/etablissements.html', etablissements=etablissements, title="Gestion des Établissements")
 
 @app.route('/admin/etablissements/add', methods=['GET', 'POST'])
 @login_required
@@ -289,7 +340,6 @@ def add_etablissement():
             return redirect(url_for('list_etablissements'))
     return render_template('admin/add_etablissement.html', form=form, title="Ajouter un Établissement")
 
-
 @app.route('/admin/etablissements/edit/<int:etablissement_id>', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -303,8 +353,10 @@ def edit_etablissement(etablissement_id):
         db.session.commit()
         flash('Établissement mis à jour avec succès.', 'success')
         return redirect(url_for('list_etablissements'))
+    form.nom.data = etablissement.nom
+    form.ville.data = etablissement.ville
+    form.cecop.data = etablissement.cecop
     return render_template('admin/edit_etablissement.html', form=form, title="Modifier l'Établissement")
-
 
 @app.route('/admin/etablissements/delete/<int:etablissement_id>', methods=['POST'])
 @login_required

@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Historique de Mes Demandes</h1>
+    <a href="{{ url_for('creer_demande') }}" class="btn btn-primary">Faire une Nouvelle Demande</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">N° Demande</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Année Scolaire</th>
+                    <th scope="col">Quantité Totale</th>
+                    <th scope="col">Statut</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for demande in demandes %}
+                <tr>
+                    <th scope="row">DEM-{{ demande.id }}</th>
+                    <td>{{ demande.date_demande.strftime('%d/%m/%Y à %H:%M') }}</td>
+                    <td>{{ demande.annee_scolaire }}</td>
+                    <td>{{ demande.total_quantite }}</td>
+                    <td>
+                        <!-- On affiche un badge de couleur différente selon le statut -->
+                        {% if demande.statut == 'Soumise' %}
+                            <span class="badge bg-primary">{{ demande.statut }}</span>
+                        {% elif demande.statut == 'Validée' %}
+                            <span class="badge bg-info text-dark">{{ demande.statut }}</span>
+                        {% elif demande.statut == 'Approuvée' %}
+                            <span class="badge bg-success">{{ demande.statut }}</span>
+                        {% elif demande.statut == 'Rejetée' %}
+                            <span class="badge bg-danger">{{ demande.statut }}</span>
+                        {% elif demande.statut == 'Traitée' %}
+                            <span class="badge bg-dark">{{ demande.statut }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ demande.statut }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <!-- ======================= LIEN ACTIVÉ ======================= -->
+                        <!-- Il pointe vers la route 'details_demande' et passe l'ID de la demande -->
+                        <a href="{{ url_for('details_demande', demande_id=demande.id) }}" class="btn btn-sm btn-outline-secondary">
+                            Voir Détails
+                        </a>
+                        <!-- ============================================================= -->
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted p-4">Vous n'avez encore soumis aucune demande.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

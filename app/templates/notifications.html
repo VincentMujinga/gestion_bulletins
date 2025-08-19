@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h1>Mes Notifications</h1>
+<p>Voici l'historique de toutes les notifications que vous avez reçues.</p>
+
+<div class="list-group">
+    {% for notif in notifications %}
+        <div class="list-group-item list-group-item-action">
+            <div class="d-flex w-100 justify-content-between">
+                <p class="mb-1">{{ notif.message }}</p>
+                <small class="text-muted">{{ notif.timestamp.strftime('%d/%m/%Y %H:%M') }}</small>
+            </div>
+        </div>
+    {% else %}
+        <div class="list-group-item">
+            <p class="mb-1 text-muted">Vous n'avez aucune notification.</p>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}
