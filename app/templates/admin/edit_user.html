@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h1>Modifier l'utilisateur : {{ user.username }}</h1>
+<div class="card mt-4">
+    <div class="card-body">
+        <form method="POST" action="" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="mb-3">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control", value=user.username) }}
+            </div>
+
+            <div class="mb-3">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control", value=user.email) }}
+            </div>
+
+            <div class="mb-3">
+                {{ form.role.label(class="form-label") }}
+                <!-- On s'assure que le bon rôle est sélectionné -->
+                {{ form.role(class="form-select", value=user.role_id) }}
+            </div>
+
+            <div class="mb-3">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.etablissement.label(class="form-label") }}
+                {{ form.etablissement(class="form-select") }}
+            </div>
+
+            {{ form.submit(class="btn btn-primary") }}
+            <a href="{{ url_for('list_users') }}" class="btn btn-secondary">Annuler</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

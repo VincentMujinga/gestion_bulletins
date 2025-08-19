@@ -1,0 +1,184 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Nouvelle Demande de Bulletins</h1>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Annuler</a>
+</div>
+
+<form method="POST" action="" id="demande-form">
+    {{ form.hidden_tag() }}
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    {{ form.annee_scolaire.label(class="form-label") }}
+                    {{ form.annee_scolaire(class="form-control", placeholder="ex: 2024-2025") }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Lignes de la demande</h4>
+        <button type="button" id="add-ligne-btn" class="btn btn-success">Ajouter une ligne</button>
+    </div>
+
+    <div id="lignes-container">
+        <!-- Les lignes de formulaire seront ajoutées ici -->
+    </div>
+
+    <hr class="my-4">
+
+    <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded">
+        <h4>Total Général : <span id="total-general" class="fw-bold">0</span></h4>
+        {{ form.submit(class="btn btn-primary btn-lg") }}
+    </div>
+</form>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+    // On passe les données de Flask à JavaScript
+    const optionsData = JSON.parse('{{ options_par_type|tojson|safe }}');
+    let ligneIndex = 0;
+
+    // Fonction pour créer une nouvelle ligne de formulaire
+    function createLigne(index) {
+        const ligneDiv = document.createElement('div');
+        ligneDiv.className = 'row g-2 align-items-end p-3 mb-2 bg-light border rounded ligne-demande';
+        ligneDiv.dataset.index = index;
+
+        // Structure HTML de la ligne
+        ligneDiv.innerHTML = `
+            <div class="col-md-3">
+                <label class="form-label">Type d'école</label>
+                <select name="lignes-${index}-type_ecole" class="form-select type-ecole-select">
+                    <option value="">--- Choisir ---</option>
+                    <option value="Maternelle">Maternelle</option>
+                    <option value="Primaire">Primaire</option>
+                    <option value="Secondaire">Secondaire</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Niveau/Classe</label>
+                <select name="lignes-${index}-niveau" class="form-select niveau-select" disabled></select>
+            </div>
+            <div class="col-md-3 option-container" style="display: none;">
+                <label class="form-label">Option</label>
+                <select name="lignes-${index}-option" class="form-select option-select" disabled></select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Quantité</label>
+                <input type="number" name="lignes-${index}-quantite" class="form-control quantite-input" value="0">
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-danger remove-ligne-btn">X</button>
+            </div>
+        `;
+        return ligneDiv;
+    }
+
+    // Fonction pour mettre à jour les listes déroulantes
+    function updateSelects(ligneElement) {
+        const typeSelect = ligneElement.querySelector('.type-ecole-select');
+        const niveauSelect = ligneElement.querySelector('.niveau-select');
+        const optionContainer = ligneElement.querySelector('.option-container');
+        const optionSelect = ligneElement.querySelector('.option-select');
+
+        const selectedType = typeSelect.value;
+
+        // Vider et désactiver les selects enfants
+        niveauSelect.innerHTML = '<option value="">---</option>';
+        optionSelect.innerHTML = '<option value="">---</option>';
+        niveauSelect.disabled = true;
+        optionSelect.disabled = true;
+        optionContainer.style.display = 'none';
+
+        if (selectedType && optionsData[selectedType]) {
+            niveauSelect.disabled = false;
+            const data = optionsData[selectedType];
+
+            // Remplir les niveaux (ceux sans options)
+            data.niveaux.forEach(n => {
+                niveauSelect.add(new Option(n, n));
+            });
+
+            // Remplir les niveaux qui sont DANS des options (Secondaire)
+            if (selectedType === 'Secondaire') {
+                for (const opt in data.options) {
+                    data.options[opt].forEach(n => {
+                        niveauSelect.add(new Option(`${n} - ${opt}`, `${n} (${opt})`));
+                    });
+                }
+            }
+        }
+    }
+
+    function handleNiveauChange(ligneElement) {
+        const niveauSelect = ligneElement.querySelector('.niveau-select');
+        const optionContainer = ligneElement.querySelector('.option-container');
+        const optionSelect = ligneElement.querySelector('.option-select');
+
+        const selectedNiveau = niveauSelect.value;
+
+        // Si le niveau sélectionné n'est PAS 7ème ou 8ème, on montre les options
+        if (selectedNiveau && !selectedNiveau.startsWith('7ème') && !selectedNiveau.startsWith('8ème')) {
+             // La logique ici est que l'option est déjà dans le nom du niveau,
+             // donc on n'a plus besoin d'un champ "option" séparé.
+             // On va simplement extraire l'option du texte pour la sauvegarder.
+             // Pour la simplicité de l'UI, on peut même cacher le champ option.
+        } else {
+            // Pas d'option pour 7ème et 8ème
+        }
+    }
+
+    // Fonction pour calculer le total
+    function updateTotal() {
+        let total = 0;
+        document.querySelectorAll('.quantite-input').forEach(input => {
+            total += parseInt(input.value, 10) || 0;
+        });
+        document.getElementById('total-general').textContent = total;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const container = document.getElementById('lignes-container');
+
+        // Ajouter une ligne au chargement de la page
+        container.appendChild(createLigne(ligneIndex++));
+
+        // Gérer le clic sur "Ajouter une ligne"
+        document.getElementById('add-ligne-btn').addEventListener('click', function() {
+            container.appendChild(createLigne(ligneIndex++));
+        });
+
+        // Gérer les événements sur le conteneur
+        container.addEventListener('change', function(e) {
+            if (e.target.classList.contains('type-ecole-select')) {
+                updateSelects(e.target.closest('.ligne-demande'));
+            }
+            if (e.target.classList.contains('niveau-select')) {
+                handleNiveauChange(e.target.closest('.ligne-demande'));
+            }
+        });
+
+        container.addEventListener('input', function(e) {
+            if (e.target.classList.contains('quantite-input')) {
+                updateTotal();
+            }
+        });
+
+        container.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-ligne-btn')) {
+                e.target.closest('.ligne-demande').remove();
+                updateTotal();
+            }
+        });
+
+        updateTotal();
+    });
+</script>
+{% endblock %}

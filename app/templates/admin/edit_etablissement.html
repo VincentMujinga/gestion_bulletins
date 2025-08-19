@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block content %}
+<h1>Modifier l'Établissement</h1>
+<div class="card mt-4">
+    <div class="card-body">
+        <form method="POST" action="">
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                {{ form.nom.label(class="form-label") }}
+                {{ form.nom(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.ville.label(class="form-label") }}
+                {{ form.ville(class="form-control") }}
+            </div>
+            {{ form.submit(class="btn btn-primary") }}
+            <a href="{{ url_for('list_etablissements') }}" class="btn btn-secondary">Annuler</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
