@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Demande N°DEM-{{ demande.id }}</title>
+    <!-- On utilise Bootstrap juste pour la grille et le style de base -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Styles pour forcer une apparence propre à l'impression */
+        @media print {
+            body {
+                font-size: 11pt;
+                -webkit-print-color-adjust: exact; /* Forcer l'impression des couleurs de fond sur Chrome/Safari */
+                color-adjust: exact; /* Standard */
+            }
+            .no-print { display: none; } /* On cachera le bouton d'impression lui-même */
+            .table-light {
+                background-color: #f8f9fa !important; /* Forcer la couleur de fond des en-têtes */
+            }
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <div class="container">
+        <header class="d-flex justify-content-between align-items-center mb-5 border-bottom pb-3">
+            <div>
+                <h1 class="h3">Demande de Bulletins N°DEM-{{ demande.id }}</h1>
+                <p class="mb-0">Établissement : <strong>{{ demande.etablissement.nom }}</strong></p>
+            </div>
+            <div class="text-end">
+                <p class="mb-0">Année Scolaire : <strong>{{ demande.annee_scolaire }}</strong></p>
+                <p class="mb-0">Date de Soumission : {{ demande.date_demande.strftime('%d/%m/%Y') }}</p>
+            </div>
+        </header>
+
+        <main>
+            <h2 class="h4 mb-3">Détail des Bulletins Demandés</h2>
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Type d'École</th>
+                        <th>Niveau/Classe</th>
+                        <th>Option</th>
+                        <th class="text-end">Quantité</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in demande.lignes %}
+                    <tr>
+                        <td>{{ ligne.type_ecole }}</td>
+                        <td>{{ ligne.niveau }}</td>
+                        <td>{{ ligne.option or '' }}</td>
+                        <td class="text-end fw-bold">{{ ligne.quantite }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="table-light">
+                        <td colspan="3" class="text-end"><strong>Total Général</strong></td>
+                        <td class="text-end fw-bolder fs-5">{{ demande.total_quantite }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="row mt-5 pt-5">
+                <div class="col-6">
+                    <p><strong>Cachet de l'établissement</strong></p>
+                </div>
+                <div class="col-6 text-end">
+                    <!-- ======================= CORRECTION DE LA DATE ======================= -->
+                    <p><strong>Fait à {{ demande.etablissement.ville or 'Kamina' }}, le {{ date_impression.strftime('%d/%m/%Y') }}</strong></p>
+                    <!-- ======================================================================= -->
+                    <div class="mt-5 pt-3">
+                        <p class="border-top pt-2">Signature de l'Expéditeur<br>
+                        <small>({{ current_user.username }} - {{ current_user.role.name }})</small></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="mt-5 text-center text-muted no-print">
+            <hr>
+            <p>--- Document généré par le Système de Gestion des Bulletins ---</p>
+            <button class="btn btn-primary" onclick="window.print()">Imprimer ce document</button>
+        </footer>
+    </div>
+
+</body>
+</html>

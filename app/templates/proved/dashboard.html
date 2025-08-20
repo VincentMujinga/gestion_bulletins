@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block content %}
+<h1>Demandes Prêtes pour Traitement Final</h1>
+<p class="lead">Liste des demandes approuvées, prêtes pour la distribution des bulletins.</p>
+<div class="card mt-4">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>N° Demande</th>
+                    <th>Établissement</th>
+                    <th>Quantité Totale</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for demande in demandes %}
+                <tr>
+                    <td>DEM-{{ demande.id }}</td>
+                    <td>{{ demande.etablissement.nom }}</td>
+                    <td>{{ demande.total_quantite }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('details_demande', demande_id=demande.id) }}" class="btn btn-sm btn-outline-primary">Voir Détails</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted p-4">Aucune demande à traiter pour le moment.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

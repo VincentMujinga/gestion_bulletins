@@ -1,5 +1,5 @@
 # ==============================================================================
-# Contenu COMPLET, VÉRIFIÉ ET CORRECT pour le fichier app/routes.py
+# Contenu COMPLET, UNIQUE ET FINAL pour le fichier app/routes.py
 # ==============================================================================
 
 from flask import render_template, flash, redirect, url_for, request, current_app as app
@@ -29,6 +29,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# (Tous vos autres décorateurs ici : chef_etablissement_required, etc.)
 def chef_etablissement_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -59,15 +60,23 @@ def sous_proved_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def proved_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role.name != 'Proved':
+            flash("Accès réservé.", 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 # ==============================================================================
-# ROUTES COMMUNES (Authentification, Dashboard, Notifications)
+# ROUTES COMMUNES
 # ==============================================================================
 
 @app.route('/')
 def index():
     return redirect(url_for('login'))
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -85,6 +94,11 @@ def login():
 @login_required
 def dashboard():
     return render_template('dashboard.html', title="Tableau de Bord")
+
+
+# ==============================================================================
+# ROUTES COMMUNES (Authentification, Dashboard, Notifications)
+# ==============================================================================
 
 @app.route('/logout')
 @login_required
@@ -111,7 +125,6 @@ def send_notification(user_id, message):
 # ==============================================================================
 # ROUTES POUR LES DEMANDES (Chef d'Établissement & autres)
 # ==============================================================================
-
 @app.route('/demandes/nouvelle', methods=['GET', 'POST'])
 @login_required
 @chef_etablissement_required
@@ -185,11 +198,11 @@ def details_demande(demande_id):
     form_rejet = RejectionForm()
     return render_template('demandes/details_demande.html', demande=demande, form_rejet=form_rejet, title=f"Détails Demande N°{demande.id}")
 
-
 # ==============================================================================
-# ROUTES POUR LE COORDONNATEUR
+# ROUTES POUR LE WORKFLOW DE VALIDATION
 # ==============================================================================
 
+# --- Coordonnateur ---
 @app.route('/coordonnateur/dashboard')
 @login_required
 @coordonnateur_required
@@ -197,10 +210,7 @@ def coordonnateur_dashboard():
     demandes_a_valider = Demande.query.filter_by(statut='Soumise').order_by(Demande.date_demande.asc()).all()
     stats = {
         'en_attente': len(demandes_a_valider),
-        'traitees_par_moi': Demande.query.filter(
-            Demande.processeur_id == current_user.id,
-            Demande.statut.in_(['Validée', 'Rejetée'])
-        ).count(),
+        'traitees_par_moi': Demande.query.filter(Demande.processeur_id == current_user.id, Demande.statut.in_(['Validée', 'Rejetée'])).count(),
         'total_recues': Demande.query.count()
     }
     return render_template('coordonnateur/dashboard.html', demandes=demandes_a_valider, stats=stats, title="Demandes à Valider")
@@ -209,10 +219,7 @@ def coordonnateur_dashboard():
 @login_required
 @coordonnateur_required
 def coordonnateur_historique():
-    demandes_traitees = Demande.query.filter(
-        Demande.processeur_id == current_user.id,
-        Demande.statut.in_(['Validée', 'Rejetée'])
-    ).order_by(Demande.date_traitement.desc()).all()
+    demandes_traitees = Demande.query.filter(Demande.processeur_id == current_user.id, Demande.statut.in_(['Validée', 'Rejetée'])).order_by(Demande.date_traitement.desc()).all()
     return render_template('coordonnateur/historique.html', demandes=demandes_traitees, title="Historique des Traitements")
 
 @app.route('/demande/<int:demande_id>/valider', methods=['POST'])
@@ -226,8 +233,11 @@ def valider_demande(demande_id):
         demande.date_traitement = datetime.utcnow()
         chef = demande.etablissement.utilisateurs.first()
         if chef:
-            message = f"Bonne nouvelle ! Votre demande N°{demande.id} a été VALIDÉE par le Coordonnateur."
-            send_notification(user_id=chef.id, message=message)
+            send_notification(chef.id, f"Bonne nouvelle ! Votre demande N°{demande.id} a été VALIDÉE par le Coordonnateur.")
+        role_sous_proved = Role.query.filter_by(name='Sous-Proved').first()
+        if role_sous_proved:
+            for sp in role_sous_proved.users.all():
+                send_notification(sp.id, f"Nouvelle demande (N°{demande.id}) de {demande.etablissement.nom} à approuver.")
         db.session.commit()
         flash(f'La demande N°{demande.id} a été validée avec succès.', 'success')
     else:
@@ -247,46 +257,36 @@ def rejeter_demande(demande_id):
             demande.date_traitement = datetime.utcnow()
             chef = demande.etablissement.utilisateurs.first()
             if chef:
-                message = f"Attention : Votre demande N°{demande.id} a été REJETÉE. Motif : {form.motif_rejet.data}"
-                send_notification(user_id=chef.id, message=message)
+                send_notification(chef.id, f"Attention : Votre demande N°{demande.id} a été REJETÉE. Motif : {form.motif_rejet.data}")
             db.session.commit()
             flash(f'La demande N°{demande.id} a été rejetée.', 'success')
         else:
             flash(f'Cette demande n\'est plus en attente de validation.', 'warning')
         return redirect(url_for('coordonnateur_dashboard'))
     else:
-        flash('Le motif du rejet est obligatoire et doit faire au moins 10 caractères.', 'danger')
+        flash('Le motif du rejet est obligatoire.', 'danger')
         return redirect(url_for('details_demande', demande_id=demande.id))
 
-
-# ==============================================================================
-# ROUTES POUR LE SOUS-PROVED
-# ==============================================================================
-
-# Dans app/routes.py
-
+# --- Sous-Proved ---
 @app.route('/sous-proved/dashboard')
 @login_required
 @sous_proved_required
 def sous_proved_dashboard():
     demandes_a_approuver = Demande.query.filter_by(statut='Validée').order_by(Demande.date_demande.asc()).all()
-
-    # --- CALCUL DES STATS ---
     stats = {
         'en_attente': len(demandes_a_approuver),
-        'traitees_par_moi': Demande.query.filter(
-            Demande.processeur_id == current_user.id,
-            Demande.statut.in_(['Approuvée', 'Rejetée'])
-        ).count(),
+        'traitees_par_moi': Demande.query.filter(Demande.processeur_id == current_user.id, Demande.statut.in_(['Approuvée', 'Rejetée'])).count(),
         'total_validees': Demande.query.filter(Demande.statut.in_(['Validée', 'Approuvée', 'Traitée'])).count()
     }
-    # --- FIN DU CALCUL ---
+    return render_template('sous_proved/dashboard.html', demandes=demandes_a_approuver, stats=stats, title="Demandes à Approuver")
 
-    # --- LIGNE CORRIGÉE ---
-    return render_template('sous_proved/dashboard.html',
-                           demandes=demandes_a_approuver,
-                           stats=stats,  # <-- ON PASSE MAINTENANT LES STATS
-                           title="Demandes à Approuver")
+@app.route('/sous-proved/historique')
+@login_required
+@sous_proved_required
+def sous_proved_historique():
+    demandes_traitees = Demande.query.filter(Demande.processeur_id == current_user.id, Demande.statut.in_(['Approuvée', 'Rejetée'])).order_by(Demande.date_traitement.desc()).all()
+    return render_template('sous_proved/historique.html', demandes=demandes_traitees, title="Historique de mes Approbations")
+
 @app.route('/demande/<int:demande_id>/approuver', methods=['POST'])
 @login_required
 @sous_proved_required
@@ -299,11 +299,13 @@ def approuver_demande(demande_id):
         demande.date_traitement = datetime.utcnow()
         chef = demande.etablissement.utilisateurs.first()
         if chef:
-            message_chef = f"Excellente nouvelle ! Votre demande N°{demande.id} a été APPROUVÉE par le Sous-Proved."
-            send_notification(user_id=chef.id, message=message_chef)
+            send_notification(chef.id, f"Excellente nouvelle ! Votre demande N°{demande.id} a été APPROUVÉE par le Sous-Proved.")
         if coordonnateur_id:
-            message_coord = f"Info : La demande N°{demande.id} que vous aviez validée a été approuvée."
-            send_notification(user_id=coordonnateur_id, message=message_coord)
+            send_notification(coordonnateur_id, f"Info : La demande N°{demande.id} que vous aviez validée a été approuvée.")
+        role_proved = Role.query.filter_by(name='Proved').first()
+        if role_proved:
+            for proved in role_proved.users.all():
+                send_notification(proved.id, f"Nouvelle demande (N°{demande.id}) de {demande.etablissement.nom} à traiter.")
         db.session.commit()
         flash(f'La demande N°{demande.id} a été approuvée avec succès.', 'success')
     else:
@@ -324,11 +326,9 @@ def rejeter_demande_sp(demande_id):
             demande.date_traitement = datetime.utcnow()
             chef = demande.etablissement.utilisateurs.first()
             if chef:
-                message_chef = f"Attention : Votre demande N°{demande.id} a été REJETÉE par le Sous-Proved. Motif : {form.motif_rejet.data}"
-                send_notification(user_id=chef.id, message=message_chef)
+                send_notification(chef.id, f"Attention : Votre demande N°{demande.id} a été REJETÉE par le Sous-Proved. Motif : {form.motif_rejet.data}")
             if coordonnateur_id:
-                message_coord = f"Info : La demande N°{demande.id} que vous aviez validée a été rejetée."
-                send_notification(user_id=coordonnateur_id, message=message_coord)
+                send_notification(coordonnateur_id, f"Info : La demande N°{demande.id} que vous aviez validée a été rejetée.")
             db.session.commit()
             flash(f'La demande N°{demande.id} a été rejetée.', 'success')
         else:
@@ -338,31 +338,36 @@ def rejeter_demande_sp(demande_id):
         flash('Le motif du rejet est obligatoire.', 'danger')
         return redirect(url_for('details_demande', demande_id=demande.id))
 
-
-# Dans app/routes.py, à la suite des routes du Sous-Proved
-
-@app.route('/sous-proved/historique')
+# --- Proved ---
+@app.route('/proved/dashboard')
 @login_required
-@sous_proved_required
-def sous_proved_historique():
-    """
-    Affiche l'historique des demandes traitées par le Sous-Proved.
-    """
-    demandes_traitees = Demande.query.filter(
-        Demande.processeur_id == current_user.id,
-        Demande.statut.in_(['Approuvée', 'Rejetée'])
-    ).order_by(Demande.date_traitement.desc()).all()
+@proved_required
+def proved_dashboard():
+    demandes_a_traiter = Demande.query.filter_by(statut='Approuvée').order_by(Demande.date_demande.asc()).all()
+    return render_template('proved/dashboard.html', demandes=demandes_a_traiter, title="Demandes à Traiter")
 
-    return render_template('sous_proved/historique.html',
-                           demandes=demandes_traitees,
-                           title="Historique de mes Approbations")
+@app.route('/demande/<int:demande_id>/traiter', methods=['POST'])
+@login_required
+@proved_required
+def traiter_demande(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+    if demande.statut == 'Approuvée':
+        demande.statut = 'Traitée'
+        demande.processeur_id = current_user.id
+        demande.date_traitement = datetime.utcnow()
+        chef = demande.etablissement.utilisateurs.first()
+        if chef:
+            send_notification(chef.id, f"Votre demande N°{demande.id} a été TRAITÉE. Les bulletins sont prêts pour la distribution.")
+        db.session.commit()
+        flash(f'La demande N°{demande.id} a été marquée comme traitée.', 'success')
+    else:
+        flash(f'Cette demande n\'est plus en attente de traitement.', 'warning')
+    return redirect(url_for('proved_dashboard'))
 
 
 # ==============================================================================
 # ROUTES POUR L'ADMINISTRATEUR
 # ==============================================================================
-
-# --- Gestion des Utilisateurs ---
 @app.route('/admin/users')
 @login_required
 @admin_required
@@ -423,7 +428,6 @@ def delete_user(user_id):
     db.session.commit()
     return redirect(url_for('list_users'))
 
-# --- Gestion des Établissements ---
 @app.route('/admin/etablissements')
 @login_required
 @admin_required
@@ -474,3 +478,28 @@ def delete_etablissement(etablissement_id):
     db.session.delete(etablissement)
     db.session.commit()
     return redirect(url_for('list_etablissements'))
+
+
+# Dans app/routes.py, par exemple après la route 'details_demande'
+
+# Dans app/routes.py
+
+from datetime import date  # Assurez-vous que 'date' est importé depuis 'datetime' en haut du fichier
+
+
+@app.route('/demande/<int:demande_id>/imprimer')
+@login_required
+def imprimer_demande(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+
+    # Sécurité
+    if current_user.role.name == 'Chef d\'établissement' and demande.etablissement_id != current_user.etablissement_id:
+        flash("Accès non autorisé.", 'danger')
+        return redirect(url_for('mes_demandes'))
+
+    # --- LIGNE À AJOUTER ---
+    date_impression = date.today()
+
+    return render_template('demandes/imprimer_demande.html',
+                           demande=demande,
+                           date_impression=date_impression)  # On passe la date au template

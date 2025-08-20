@@ -1,6 +1,6 @@
 # ==============================================================================
-# Contenu COMPLET et CORRECT pour le fichier app/__init__.py
-# Étape : Ajout de la logique de notification
+# Contenu FINAL, COMPLET et CORRECT pour le fichier app/__init__.py
+# Utilise la structure simple sans Blueprints multiples.
 # ==============================================================================
 
 from flask import Flask
@@ -8,17 +8,21 @@ from config import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
-from flask_login import current_user  # <-- Importez current_user ici
+from flask_login import current_user
 
+# On initialise les extensions
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
-login_manager.login_view = 'login'
+login_manager.login_view = 'login'  # Le nom de la fonction de connexion dans routes.py
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    # On importe ici pour éviter les importations circulaires au démarrage
+    """
+    Fonction requise par Flask-Login pour recharger l'objet utilisateur
+    depuis l'ID utilisateur stocké dans la session.
+    """
     from app.models import User
     return User.query.get(int(user_id))
 
@@ -30,29 +34,22 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # On lie les extensions à notre application
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
 
+    # LA SOLUTION à l'erreur 'NameError: app is not defined' :
+    # On importe les routes APRÈS que la variable 'app' a été créée et configurée.
     with app.app_context():
-        # On importe les routes ici pour qu'elles aient accès à 'app'
-        from . import routes, models
+        from . import routes
 
-    # --- DÉBUT DE LA MODIFICATION : INJECTER LES NOTIFICATIONS ---
+    # On injecte le compteur de notifications pour qu'il soit disponible dans tous les templates
     @app.context_processor
     def inject_notifications():
-        """
-        Injecte le nombre de notifications non lues dans tous les templates.
-        Cette fonction est appelée automatiquement par Flask avant de rendre un template.
-        """
-        # On ne fait le calcul que si un utilisateur est connecté
         if current_user.is_authenticated:
             count = current_user.notifications.filter_by(is_read=False).count()
             return {'notification_count': count}
-
-        # Si aucun utilisateur n'est connecté, on renvoie 0
         return {'notification_count': 0}
-
-    # --- FIN DE LA MODIFICATION ---
 
     return app
