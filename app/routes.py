@@ -33,10 +33,10 @@ def chef_etablissement_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.role.name != 'Chef d\'établissement':
-            flash("Accès réservé aux chefs d'établissement.", 'danger')
+            flash("Accès réservé.", 'danger')
             return redirect(url_for('dashboard'))
         if not current_user.etablissement:
-            flash("Votre compte n'est pas associé à un établissement.", 'danger')
+            flash("Compte non associé à un établissement.", 'danger')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
@@ -45,7 +45,16 @@ def coordonnateur_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.role.name != 'Coordonnateur':
-            flash("Accès réservé aux coordonnateurs.", 'danger')
+            flash("Accès réservé.", 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def sous_proved_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role.name != 'Sous-Proved':
+            flash("Accès réservé.", 'danger')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
@@ -248,6 +257,105 @@ def rejeter_demande(demande_id):
     else:
         flash('Le motif du rejet est obligatoire et doit faire au moins 10 caractères.', 'danger')
         return redirect(url_for('details_demande', demande_id=demande.id))
+
+
+# ==============================================================================
+# ROUTES POUR LE SOUS-PROVED
+# ==============================================================================
+
+# Dans app/routes.py
+
+@app.route('/sous-proved/dashboard')
+@login_required
+@sous_proved_required
+def sous_proved_dashboard():
+    demandes_a_approuver = Demande.query.filter_by(statut='Validée').order_by(Demande.date_demande.asc()).all()
+
+    # --- CALCUL DES STATS ---
+    stats = {
+        'en_attente': len(demandes_a_approuver),
+        'traitees_par_moi': Demande.query.filter(
+            Demande.processeur_id == current_user.id,
+            Demande.statut.in_(['Approuvée', 'Rejetée'])
+        ).count(),
+        'total_validees': Demande.query.filter(Demande.statut.in_(['Validée', 'Approuvée', 'Traitée'])).count()
+    }
+    # --- FIN DU CALCUL ---
+
+    # --- LIGNE CORRIGÉE ---
+    return render_template('sous_proved/dashboard.html',
+                           demandes=demandes_a_approuver,
+                           stats=stats,  # <-- ON PASSE MAINTENANT LES STATS
+                           title="Demandes à Approuver")
+@app.route('/demande/<int:demande_id>/approuver', methods=['POST'])
+@login_required
+@sous_proved_required
+def approuver_demande(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+    if demande.statut == 'Validée':
+        coordonnateur_id = demande.processeur_id
+        demande.statut = 'Approuvée'
+        demande.processeur_id = current_user.id
+        demande.date_traitement = datetime.utcnow()
+        chef = demande.etablissement.utilisateurs.first()
+        if chef:
+            message_chef = f"Excellente nouvelle ! Votre demande N°{demande.id} a été APPROUVÉE par le Sous-Proved."
+            send_notification(user_id=chef.id, message=message_chef)
+        if coordonnateur_id:
+            message_coord = f"Info : La demande N°{demande.id} que vous aviez validée a été approuvée."
+            send_notification(user_id=coordonnateur_id, message=message_coord)
+        db.session.commit()
+        flash(f'La demande N°{demande.id} a été approuvée avec succès.', 'success')
+    else:
+        flash(f'Cette demande n\'est plus en attente d\'approbation.', 'warning')
+    return redirect(url_for('sous_proved_dashboard'))
+
+@app.route('/demande/<int:demande_id>/rejeter_sp', methods=['POST'])
+@login_required
+@sous_proved_required
+def rejeter_demande_sp(demande_id):
+    demande = Demande.query.get_or_404(demande_id)
+    form = RejectionForm()
+    if form.validate_on_submit():
+        if demande.statut == 'Validée':
+            coordonnateur_id = demande.processeur_id
+            demande.statut = 'Rejetée'
+            demande.processeur_id = current_user.id
+            demande.date_traitement = datetime.utcnow()
+            chef = demande.etablissement.utilisateurs.first()
+            if chef:
+                message_chef = f"Attention : Votre demande N°{demande.id} a été REJETÉE par le Sous-Proved. Motif : {form.motif_rejet.data}"
+                send_notification(user_id=chef.id, message=message_chef)
+            if coordonnateur_id:
+                message_coord = f"Info : La demande N°{demande.id} que vous aviez validée a été rejetée."
+                send_notification(user_id=coordonnateur_id, message=message_coord)
+            db.session.commit()
+            flash(f'La demande N°{demande.id} a été rejetée.', 'success')
+        else:
+            flash(f'Cette demande n\'est plus en attente d\'approbation.', 'warning')
+        return redirect(url_for('sous_proved_dashboard'))
+    else:
+        flash('Le motif du rejet est obligatoire.', 'danger')
+        return redirect(url_for('details_demande', demande_id=demande.id))
+
+
+# Dans app/routes.py, à la suite des routes du Sous-Proved
+
+@app.route('/sous-proved/historique')
+@login_required
+@sous_proved_required
+def sous_proved_historique():
+    """
+    Affiche l'historique des demandes traitées par le Sous-Proved.
+    """
+    demandes_traitees = Demande.query.filter(
+        Demande.processeur_id == current_user.id,
+        Demande.statut.in_(['Approuvée', 'Rejetée'])
+    ).order_by(Demande.date_traitement.desc()).all()
+
+    return render_template('sous_proved/historique.html',
+                           demandes=demandes_traitees,
+                           title="Historique de mes Approbations")
 
 
 # ==============================================================================

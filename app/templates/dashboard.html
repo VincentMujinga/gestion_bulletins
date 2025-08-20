@@ -33,13 +33,23 @@
             </div>
         </div>
 
-    <!-- NOUVELLE SECTION POUR LE COORDONNATEUR -->
+    <!-- COORDONNATEUR -->
     {% elif current_user.role.name == 'Coordonnateur' %}
         <div class="card my-4">
             <div class="card-header"><h4>Validation des Demandes</h4></div>
             <div class="card-body">
-                <p>Vous avez des demandes soumises par les établissements en attente de votre validation.</p>
+                <p>Consultez les demandes soumises par les établissements en attente de votre validation.</p>
                 <a href="{{ url_for('coordonnateur_dashboard') }}" class="btn btn-primary">Voir les Demandes à Valider</a>
+            </div>
+        </div>
+
+    <!-- NOUVELLE SECTION POUR LE SOUS-PROVED -->
+    {% elif current_user.role.name == 'Sous-Proved' %}
+        <div class="card my-4">
+            <div class="card-header"><h4>Approbation des Demandes</h4></div>
+            <div class="card-body">
+                <p>Consultez les demandes validées par les coordonnateurs en attente de votre approbation.</p>
+                <a href="{{ url_for('sous_proved_dashboard') }}" class="btn btn-primary">Voir les Demandes à Approuver</a>
             </div>
         </div>
 
