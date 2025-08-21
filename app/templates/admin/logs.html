@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Journal d'Activité du Système</h1>
+</div>
+<p class="lead">Cette page liste les dernières actions importantes effectuées sur l'application.</p>
+
+<div class="card mt-4">
+    <div class="card-body p-0">
+        <table class="table table-striped table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 25%;">Date et Heure</th>
+                    <th style="width: 25%;">Utilisateur (Rôle)</th>
+                    <th>Action Effectuée</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs.items %}
+                <tr>
+                    <td>{{ log.timestamp.strftime('%d/%m/%Y à %H:%M:%S') }}</td>
+                    <td>
+                        {% if log.user %}
+                            {{ log.user.username }}
+                            <br>
+                            <small class="text-muted">{{ log.user.role.name }}</small>
+                        {% else %}
+                            <span class="text-muted">Système / Inconnu</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ log.action }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center text-muted p-4">
+                        Aucune activité enregistrée pour le moment.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination en bas de la page -->
+<div class="mt-4 d-flex justify-content-between">
+    <div>
+        {% if logs.has_prev %}
+            <a href="{{ url_for('view_logs', page=logs.prev_num) }}" class="btn btn-outline-secondary">
+                &laquo; Page Précédente
+            </a>
+        {% endif %}
+    </div>
+    <div>
+        Page {{ logs.page }} sur {{ logs.pages }}.
+    </div>
+    <div>
+        {% if logs.has_next %}
+            <a href="{{ url_for('view_logs', page=logs.next_num) }}" class="btn btn-outline-secondary">
+                Page Suivante &raquo;
+            </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

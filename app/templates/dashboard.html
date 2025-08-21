@@ -6,38 +6,64 @@
     <p class="lead">Bienvenue, {{ current_user.username }} !</p>
 
     <!-- ============================================================================== -->
-    <!-- DÉBUT DE LA STRUCTURE CONDITIONNELLE CORRECTE -->
+    <!-- DÉBUT DE LA STRUCTURE CONDITIONNELLE PROPRE -->
     <!-- ============================================================================== -->
 
-    <!-- CHEF D'ÉTABLISSEMENT -->
+    <!-- ========== VUE POUR LE CHEF D'ÉTABLISSEMENT ========== -->
     {% if current_user.role.name == 'Chef d\'établissement' %}
-        <div class="card my-4">
-            <div class="card-header"><h4>Actions Rapides</h4></div>
-            <div class="card-body">
-                <p>Commencez par créer une nouvelle demande de bulletins pour votre établissement.</p>
-                <a href="{{ url_for('creer_demande') }}" class="btn btn-primary btn-lg">Faire une Nouvelle Demande</a>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card my-4 h-100">
+                    <div class="card-header"><h4>Actions Rapides</h4></div>
+                    <div class="card-body d-flex flex-column justify-content-center align-items-center">
+                        <p>Commencez par créer une nouvelle demande de bulletins pour votre établissement.</p>
+                        <a href="{{ url_for('creer_demande') }}" class="btn btn-primary btn-lg">Faire une Nouvelle Demande</a>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="card my-4">
-            <div class="card-header"><h4>Historique de vos Demandes</h4></div>
-            <div class="card-body">
-                <p>Consultez la liste de vos demandes passées et en cours de traitement.</p>
-                <a href="{{ url_for('mes_demandes') }}" class="btn btn-outline-primary">Voir l'Historique</a>
+            <div class="col-md-6">
+                <div class="card my-4 h-100">
+                    <div class="card-header"><h4>Historique de vos Demandes</h4></div>
+                    <div class="card-body d-flex flex-column justify-content-center align-items-center">
+                        <p>Consultez la liste de vos demandes passées et en cours de traitement.</p>
+                        <a href="{{ url_for('mes_demandes') }}" class="btn btn-outline-primary">Voir l'Historique</a>
+                    </div>
+                </div>
             </div>
         </div>
 
-    <!-- ADMINISTRATEUR -->
+    <!-- ========== VUE POUR L'ADMINISTRATEUR ========== -->
     {% elif current_user.role.name == 'Administrateur' %}
-        <div class="card my-4">
-            <div class="card-header"><h4>Administration du Système</h4></div>
-            <div class="card-body">
-                <p>Utilisez les liens dans la barre de navigation pour gérer les utilisateurs et les établissements.</p>
-                <a href="{{ url_for('list_users') }}" class="btn btn-secondary">Gérer les Utilisateurs</a>
-                <a href="{{ url_for('list_etablissements') }}" class="btn btn-secondary">Gérer les Établissements</a>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card my-4 h-100">
+                    <div class="card-header"><h4>Administration du Système</h4></div>
+                    <div class="card-body">
+                        <p>Gérez les composants clés de l'application.</p>
+                        <a href="{{ url_for('list_users') }}" class="btn btn-secondary">Gérer les Utilisateurs</a>
+                        <a href="{{ url_for('list_etablissements') }}" class="btn btn-secondary">Gérer les Établissements</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card my-4 h-100">
+                    <div class="card-header"><h4>Maintenance</h4></div>
+                    <div class="card-body">
+                        <p>Effectuez des opérations de maintenance sur le système.</p>
+                        <a href="{{ url_for('backup_db') }}" class="btn btn-info" onclick="return confirm('Voulez-vous vraiment lancer une sauvegarde maintenant ?')">
+                            Lancer une Sauvegarde
+                        </a>
+                        <!-- ======================= LIEN AJOUTÉ ======================= -->
+                        <a href="{{ url_for('view_logs') }}" class="btn btn-outline-secondary">
+                            Consulter les Logs
+                        </a>
+                        <!-- ========================================================== -->
+                    </div>
+                </div>
             </div>
         </div>
 
-    <!-- COORDONNATEUR -->
+    <!-- ========== VUE POUR LE COORDONNATEUR ========== -->
     {% elif current_user.role.name == 'Coordonnateur' %}
         <div class="card my-4">
             <div class="card-header"><h4>Validation des Demandes</h4></div>
@@ -47,7 +73,7 @@
             </div>
         </div>
 
-    <!-- SOUS-PROVED -->
+    <!-- ========== VUE POUR LE SOUS-PROVED ========== -->
     {% elif current_user.role.name == 'Sous-Proved' %}
         <div class="card my-4">
             <div class="card-header"><h4>Approbation des Demandes</h4></div>
@@ -57,17 +83,18 @@
             </div>
         </div>
 
-    <!-- PROVED -->
+    <!-- ========== VUE POUR LE PROVED ========== -->
     {% elif current_user.role.name == 'Proved' %}
         <div class="card my-4">
-            <div class="card-header"><h4>Traitement des Demandes</h4></div>
+            <div class="card-header"><h4>Traitement des Demandes et Stocks</h4></div>
             <div class="card-body">
-                <p>Consultez les demandes approuvées prêtes pour la distribution.</p>
+                <p>Consultez les demandes approuvées prêtes pour la distribution et gérez les stocks de bulletins.</p>
                 <a href="{{ url_for('proved_dashboard') }}" class="btn btn-primary">Voir les Demandes à Traiter</a>
+                <a href="#" class="btn btn-outline-secondary disabled">Gérer les Stocks</a>
             </div>
         </div>
 
-    <!-- AUTRES RÔLES (par défaut) -->
+    <!-- ========== VUE PAR DÉFAUT POUR LES AUTRES RÔLES ========== -->
     {% else %}
         <div class="card my-4">
             <div class="card-header"><h4>Bienvenue</h4></div>
@@ -76,8 +103,5 @@
             </div>
         </div>
     {% endif %}
-    <!-- ============================================================================== -->
-    <!-- FIN DE LA STRUCTURE CONDITIONNELLE CORRECTE -->
-    <!-- ============================================================================== -->
 </div>
 {% endblock %}

@@ -8,18 +8,21 @@ from functools import wraps
 from app import db
 import re
 from datetime import datetime
+# En haut de app/routes.py
+import subprocess
+import os
+from flask import send_from_directory
 
 # Imports des formulaires et modèles nécessaires pour tout le fichier
 from app.forms import (LoginForm, AddUserForm, EditUserForm,
                        EtablissementForm, DemandeForm, RejectionForm)
 from app.models import (User, Role, Etablissement,
-                        Demande, LigneDemande, Notification)
+                        Demande, LigneDemande, Notification, Log)
 
 
 # ==============================================================================
 # DÉCORATEURS DE SÉCURITÉ
 # ==============================================================================
-
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -29,7 +32,6 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# (Tous vos autres décorateurs ici : chef_etablissement_required, etc.)
 def chef_etablissement_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -68,8 +70,6 @@ def proved_required(f):
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
-
-
 # ==============================================================================
 # ROUTES COMMUNES
 # ==============================================================================
@@ -306,6 +306,17 @@ def approuver_demande(demande_id):
         if role_proved:
             for proved in role_proved.users.all():
                 send_notification(proved.id, f"Nouvelle demande (N°{demande.id}) de {demande.etablissement.nom} à traiter.")
+                # À l'intérieur de la fonction approuver_demande(), dans le "if demande.statut == 'Validée':"
+
+                # ... (après avoir notifié le chef et le coordonnateur)
+
+                # 3. Notifier tous les Proved
+                role_proved = Role.query.filter_by(name='Proved').first()
+                if role_proved:
+                    tous_les_proved = role_proved.users.all()
+                    for proved in tous_les_proved:
+                        message_proved = f"Nouvelle demande (N°{demande.id}) de {demande.etablissement.nom} attend votre traitement."
+                        send_notification(user_id=proved.id, message=message_proved)
         db.session.commit()
         flash(f'La demande N°{demande.id} a été approuvée avec succès.', 'success')
     else:
@@ -338,32 +349,52 @@ def rejeter_demande_sp(demande_id):
         flash('Le motif du rejet est obligatoire.', 'danger')
         return redirect(url_for('details_demande', demande_id=demande.id))
 
-# --- Proved ---
+
+# --- Routes pour le Proved ---
+
 @app.route('/proved/dashboard')
 @login_required
 @proved_required
 def proved_dashboard():
-    demandes_a_traiter = Demande.query.filter_by(statut='Approuvée').order_by(Demande.date_demande.asc()).all()
-    return render_template('proved/dashboard.html', demandes=demandes_a_traiter, title="Demandes à Traiter")
+    """
+    Affiche le tableau de bord du Proved avec les demandes à traiter.
+    """
+    demandes_a_traiter = Demande.query.filter_by(statut='Approuvée') \
+        .order_by(Demande.date_demande.asc()).all()
+    return render_template('proved/dashboard.html',
+                           demandes=demandes_a_traiter,
+                           title="Demandes à Traiter")
+
 
 @app.route('/demande/<int:demande_id>/traiter', methods=['POST'])
 @login_required
 @proved_required
 def traiter_demande(demande_id):
+    """
+    Change le statut d'une demande de 'Approuvée' à 'Traitée'.
+    """
     demande = Demande.query.get_or_404(demande_id)
     if demande.statut == 'Approuvée':
         demande.statut = 'Traitée'
         demande.processeur_id = current_user.id
         demande.date_traitement = datetime.utcnow()
+
+        # Notifier le Chef d'établissement que sa commande est prête
         chef = demande.etablissement.utilisateurs.first()
         if chef:
-            send_notification(chef.id, f"Votre demande N°{demande.id} a été TRAITÉE. Les bulletins sont prêts pour la distribution.")
+            message = f"Votre demande N°{demande.id} a été TRAITÉE. Les bulletins sont prêts pour la distribution."
+            send_notification(user_id=chef.id, message=message)
+
+        # Ici, plus tard, on ajoutera la logique pour déduire du stock
+
         db.session.commit()
         flash(f'La demande N°{demande.id} a été marquée comme traitée.', 'success')
     else:
         flash(f'Cette demande n\'est plus en attente de traitement.', 'warning')
+
     return redirect(url_for('proved_dashboard'))
 
+# --- Proved ---
 
 # ==============================================================================
 # ROUTES POUR L'ADMINISTRATEUR
@@ -435,23 +466,35 @@ def list_etablissements():
     etablissements = Etablissement.query.order_by(Etablissement.nom).all()
     return render_template('admin/etablissements.html', etablissements=etablissements, title="Gestion des Établissements")
 
+
 @app.route('/admin/etablissements/add', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def add_etablissement():
     form = EtablissementForm()
     if form.validate_on_submit():
-        existing = Etablissement.query.filter_by(nom=form.nom.data).first()
-        if existing:
-            flash('Un établissement avec ce nom existe déjà.', 'danger')
-        else:
-            new_etablissement = Etablissement(nom=form.nom.data, ville=form.ville.data, cecop=form.cecop.data)
-            db.session.add(new_etablissement)
-            db.session.commit()
-            flash('Nouvel établissement créé avec succès.', 'success')
-            return redirect(url_for('list_etablissements'))
-    return render_template('admin/add_etablissement.html', form=form, title="Ajouter un Établissement")
+        nom = form.nom.data
+        ville = form.ville.data
+        cecop = form.cecop.data
 
+        # Vérification de l'unicité du nom
+        if Etablissement.query.filter_by(nom=nom).first():
+            flash('Un établissement avec ce nom existe déjà.', 'danger')
+            return render_template('admin/add_etablissement.html', form=form, title="Ajouter un Établissement")
+
+        # Vérification de l'unicité du N° CECOP SEULEMENT s'il n'est pas vide
+        if cecop and Etablissement.query.filter_by(cecop=cecop).first():
+            flash('Un établissement avec ce N° CECOP existe déjà.', 'danger')
+            return render_template('admin/add_etablissement.html', form=form, title="Ajouter un Établissement")
+
+        # Si tout est bon, on crée
+        new_etablissement = Etablissement(nom=nom, ville=ville, cecop=cecop)
+        db.session.add(new_etablissement)
+        db.session.commit()
+        flash('Nouvel établissement créé avec succès.', 'success')
+        return redirect(url_for('list_etablissements'))
+
+    return render_template('admin/add_etablissement.html', form=form, title="Ajouter un Établissement")
 @app.route('/admin/etablissements/edit/<int:etablissement_id>', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -480,6 +523,51 @@ def delete_etablissement(etablissement_id):
     return redirect(url_for('list_etablissements'))
 
 
+# Dans app/routes.py, avec les autres routes admin
+
+@app.route('/admin/backup')
+@login_required
+@admin_required
+def backup_db():
+    """
+    Crée une sauvegarde de la base de données et la propose en téléchargement.
+    """
+    try:
+        # Nom du fichier de sauvegarde avec la date
+        backup_filename = f"backup_{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}.sql"
+        # Chemin complet où sauvegarder le fichier
+        backup_path = os.path.join(app.root_path, '..',
+                                   'backups')  # On sauvegarde dans un dossier 'backups' à la racine
+
+        # Créer le dossier 'backups' s'il n'existe pas
+        os.makedirs(backup_path, exist_ok=True)
+
+        full_backup_path = os.path.join(backup_path, backup_filename)
+
+        # Construction de la commande mysqldump
+        # ATTENTION : 'mysqldump' doit être accessible dans le PATH du système.
+        # C'est généralement le cas avec une installation standard de XAMPP/WAMP/MySQL.
+        command = [
+            'mysqldump',
+            f'--host={app.config["DB_HOST"]}',
+            f'--user={app.config["DB_USER"]}',
+            f'--password={app.config["DB_PASSWORD"]}',
+            app.config["DB_NAME"],
+            f'--result-file={full_backup_path}'
+        ]
+
+        # Exécution de la commande
+        subprocess.run(command, check=True)
+
+        flash('Sauvegarde de la base de données créée avec succès.', 'success')
+        # Proposer le fichier en téléchargement
+        return send_from_directory(directory=backup_path, path=backup_filename, as_attachment=True)
+
+    except Exception as e:
+        flash(f"Une erreur est survenue lors de la sauvegarde : {e}", 'danger')
+        return redirect(url_for('list_users'))  # Ou une autre page admin
+
+
 # Dans app/routes.py, par exemple après la route 'details_demande'
 
 # Dans app/routes.py
@@ -503,3 +591,21 @@ def imprimer_demande(demande_id):
     return render_template('demandes/imprimer_demande.html',
                            demande=demande,
                            date_impression=date_impression)  # On passe la date au template
+
+
+# Dans app/routes.py, à la fin de la section admin
+
+@app.route('/admin/logs')
+@login_required
+@admin_required
+
+def view_logs():
+    """
+    Affiche le journal de toutes les activités du système.
+    """
+    # On utilise la pagination pour ne pas afficher des milliers de lignes d'un coup
+    # On affiche la page demandée (par défaut 1), avec 25 logs par page
+    page = request.args.get('page', 1, type=int)
+    logs = Log.query.order_by(Log.timestamp.desc()).paginate(page=page, per_page=25)
+
+    return render_template('admin/logs.html', logs=logs, title="Journal d'Activité")

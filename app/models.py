@@ -1,6 +1,5 @@
 # ==============================================================================
-# Contenu COMPLET pour le fichier app/models.py
-# Étape : Ajout de la traçabilité au modèle Demande
+# Contenu FINAL, VÉRIFIÉ ET CORRECT pour le fichier app/models.py
 # ==============================================================================
 
 from app import db, login_manager
@@ -26,7 +25,7 @@ class Etablissement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nom = db.Column(db.String(200), nullable=False, unique=True)
     ville = db.Column(db.String(100))
-    cecop = db.Column(db.String(50), nullable=True, unique=True)
+    cecop = db.Column(db.String(50), nullable=True)
     utilisateurs = db.relationship('User', backref='etablissement', lazy='dynamic')
     demandes = db.relationship('Demande', backref='etablissement', lazy='dynamic')
 
@@ -39,6 +38,9 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)
     etablissement_id = db.Column(db.Integer, db.ForeignKey('etablissements.id'), nullable=True)
+
+    # Les relations 'backref' des autres modèles créeront automatiquement
+    # les attributs 'notifications', 'logs', et 'demandes_traitees' sur cet objet User.
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -56,16 +58,16 @@ class Demande(db.Model):
     etablissement_id = db.Column(db.Integer, db.ForeignKey('etablissements.id'), nullable=False)
     lignes = db.relationship('LigneDemande', backref='demande', lazy='dynamic', cascade="all, delete-orphan")
 
-    # --- CHAMPS AJOUTÉS POUR LA TRAÇABILITÉ ---
+    # Champs pour la traçabilité
     processeur_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     date_traitement = db.Column(db.DateTime, nullable=True)
+
+    # Relation pour retrouver facilement l'utilisateur qui a traité la demande
+    processeur = db.relationship('User', foreign_keys=[processeur_id])
 
     @property
     def total_quantite(self):
         return sum(ligne.quantite for ligne in self.lignes)
-
-    # Relation pour retrouver facilement l'utilisateur qui a traité la demande
-    processeur = db.relationship('User', foreign_keys=[processeur_id])
 
 
 class LigneDemande(db.Model):
@@ -84,5 +86,21 @@ class Notification(db.Model):
     message = db.Column(db.String(512), nullable=False)
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     is_read = db.Column(db.Boolean, default=False)
+
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic'))
+
+    # Ligne CORRECTE :
+    user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic', cascade="all, delete-orphan"))
+
+class Log(db.Model):
+    __tablename__ = 'logs'
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    action = db.Column(db.String(512), nullable=False)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    # Ligne CORRECTE :
+    user = db.relationship('User', backref=db.backref('logs', lazy='dynamic', cascade="all, delete-orphan"))
+    def __repr__(self):
+        return f'<Log {self.action}>'

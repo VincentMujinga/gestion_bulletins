@@ -1,35 +1,104 @@
 {% extends "layout.html" %}
+
 {% block content %}
-<h1>Demandes Prêtes pour Traitement Final</h1>
-<p class="lead">Liste des demandes approuvées, prêtes pour la distribution des bulletins.</p>
-<div class="card mt-4">
-    <div class="card-body p-0">
-        <table class="table table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>N° Demande</th>
-                    <th>Établissement</th>
-                    <th>Quantité Totale</th>
-                    <th class="text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for demande in demandes %}
-                <tr>
-                    <td>DEM-{{ demande.id }}</td>
-                    <td>{{ demande.etablissement.nom }}</td>
-                    <td>{{ demande.total_quantite }}</td>
-                    <td class="text-end">
-                        <a href="{{ url_for('details_demande', demande_id=demande.id) }}" class="btn btn-sm btn-outline-primary">Voir Détails</a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" class="text-center text-muted p-4">Aucune demande à traiter pour le moment.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="container">
+    <h1 class="mb-4">Tableau de Bord</h1>
+    <p class="lead">Bienvenue, {{ current_user.username }} !</p>
+
+    <!-- ============================================================================== -->
+    <!-- DÉBUT DE LA STRUCTURE CONDITIONNELLE PROPRE -->
+    <!-- ============================================================================== -->
+
+    <!-- ========== VUE POUR LE CHEF D'ÉTABLISSEMENT ========== -->
+    {% if current_user.role.name == 'Chef d\'établissement' %}
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card my-4 h-100">
+                    <div class="card-header"><h4>Actions Rapides</h4></div>
+                    <div class="card-body">
+                        <p>Commencez par créer une nouvelle demande de bulletins pour votre établissement.</p>
+                        <a href="{{ url_for('creer_demande') }}" class="btn btn-primary btn-lg">Faire une Nouvelle Demande</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card my-4 h-100">
+                    <div class="card-header"><h4>Historique de vos Demandes</h4></div>
+                    <div class="card-body">
+                        <p>Consultez la liste de vos demandes passées et en cours de traitement.</p>
+                        <a href="{{ url_for('mes_demandes') }}" class="btn btn-outline-primary">Voir l'Historique</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <!-- ========== VUE POUR L'ADMINISTRATEUR ========== -->
+    {% elif current_user.role.name == 'Administrateur' %}
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card my-4 h-100">
+                    <div class="card-header"><h4>Administration du Système</h4></div>
+                    <div class="card-body">
+                        <p>Gérez les composants clés de l'application.</p>
+                        <a href="{{ url_for('list_users') }}" class="btn btn-secondary">Gérer les Utilisateurs</a>
+                        <a href="{{ url_for('list_etablissements') }}" class="btn btn-secondary">Gérer les Établissements</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card my-4 h-100">
+                    <div class="card-header"><h4>Maintenance</h4></div>
+                    <div class="card-body">
+                        <p>Téléchargez une copie de sauvegarde complète de la base de données.</p>
+                        <a href="{{ url_for('backup_db') }}" class="btn btn-info" onclick="return confirm('Voulez-vous vraiment lancer une sauvegarde maintenant ?')">
+                            Lancer une Sauvegarde
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <!-- ========== VUE POUR LE COORDONNATEUR ========== -->
+    {% elif current_user.role.name == 'Coordonnateur' %}
+        <div class="card my-4">
+            <div class="card-header"><h4>Validation des Demandes</h4></div>
+            <div class="card-body">
+                <p>Consultez les demandes soumises par les établissements en attente de votre validation.</p>
+                <a href="{{ url_for('coordonnateur_dashboard') }}" class="btn btn-primary">Voir les Demandes à Valider</a>
+            </div>
+        </div>
+
+    <!-- ========== VUE POUR LE SOUS-PROVED ========== -->
+    {% elif current_user.role.name == 'Sous-Proved' %}
+        <div class="card my-4">
+            <div class="card-header"><h4>Approbation des Demandes</h4></div>
+            <div class="card-body">
+                <p>Consultez les demandes validées par les coordonnateurs en attente de votre approbation.</p>
+                <a href="{{ url_for('sous_proved_dashboard') }}" class="btn btn-primary">Voir les Demandes à Approuver</a>
+            </div>
+        </div>
+
+    <!-- ========== VUE POUR LE PROVED ========== -->
+    {% elif current_user.role.name == 'Proved' %}
+        <div class="card my-4">
+            <div class="card-header"><h4>Traitement des Demandes</h4></div>
+            <div class="card-body">
+                <p>Consultez les demandes approuvées prêtes pour la distribution.</p>
+                <a href="{{ url_for('proved_dashboard') }}" class="btn btn-primary">Voir les Demandes à Traiter</a>
+            </div>
+        </div>
+
+    <!-- ========== VUE PAR DÉFAUT POUR LES AUTRES RÔLES ========== -->
+    {% else %}
+        <div class="card my-4">
+            <div class="card-header"><h4>Bienvenue</h4></div>
+            <div class="card-body">
+                <p>Votre tableau de bord personnalisé est prêt.</p>
+            </div>
+        </div>
+    {% endif %}
+    <!-- ============================================================================== -->
+    <!-- FIN DE LA STRUCTURE CONDITIONNELLE -->
+    <!-- ============================================================================== -->
 </div>
 {% endblock %}

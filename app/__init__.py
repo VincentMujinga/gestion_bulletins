@@ -9,6 +9,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_login import current_user
+# Tout en haut de app/routes.py
+from flask import Blueprint
+
+bp = Blueprint('main', __name__)
 
 # On initialise les extensions
 db = SQLAlchemy()
